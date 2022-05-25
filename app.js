@@ -118,38 +118,15 @@ app.patch("/wisesayings/:id", async (req, res) => {
     return;
   }
 
-  const { reg_date, content, author } = req.body;
-
-  if (!reg_date) {
-    res.status(400).json({
-      msg: "reg_date required",
-    });
-    return;
-  }
-
-  if (!content) {
-    res.status(400).json({
-      msg: "content required",
-    });
-    return;
-  }
-
-  if (!author) {
-    res.status(400).json({
-      msg: "author required",
-    });
-    return;
-  }
+  const { likepoint, id } = req.body;
 
   const [rs] = await pool.query(
     `
       UPDATE wisesaying
-      SET reg_date = ?,
-      content = ?,
-      author = ?
+      SET likepoint = ?
       WHERE id = ?
       `,
-    [reg_date, content, author, id]
+    [likepoint, id]
   );
 
   res.json({
@@ -200,6 +177,44 @@ app.get("/wisesayings/", async (req, res) => {
   rows.hit++;
 
   res.json([rows]);
+});
+
+app.patch("/wisesayings/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const [[rows]] = await pool.query(
+    `
+      SELECT *
+      FROM wisesaying
+      WHERE id = ?
+      ORDER BY RAND()
+      LIMIT 1
+      `,
+    [id]
+  );
+
+  if (rows.length == 0) {
+    res.status(404).json({
+      msg: "not found",
+    });
+    return;
+  }
+
+  const { likepoint } = req.body;
+
+  await pool.query(
+    `UPDATE wisesaying
+    SET likepoint = ?
+    where id = ?
+    `,
+    [likepoint, rows.id]
+  );
+
+  // rows.likepoint++;
+
+  res.json({
+    msg: `${rows.id} 좋아요 갯수가 변경되었습니다.`,
+  });
 });
 
 app.listen(port);
