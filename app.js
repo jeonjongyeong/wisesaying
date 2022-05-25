@@ -180,4 +180,26 @@ app.get("/wisesayings/:id", async (req, res) => {
   res.json(rows[0]);
 });
 
+app.get("/wisesayings/", async (req, res) => {
+  const [[rows]] = await pool.query(
+    `
+      SELECT *
+      FROM wisesaying
+      ORDER BY RAND()
+      LIMIT 1
+      `
+  );
+
+  await pool.query(
+    `UPDATE wisesaying
+    SET hit = hit + 1
+    where id = ?`,
+    [rows.id]
+  );
+
+  rows.hit++;
+
+  res.json([rows]);
+});
+
 app.listen(port);
