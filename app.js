@@ -10,6 +10,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  dateStrings: true,
 });
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(cors(corsOptions));
 
 const port = 3000;
 
+// 삭제
 app.delete("/wisesayings/:id", async (req, res) => {
   //const id = req.params.id;
   const { id } = req.params;
@@ -76,10 +78,11 @@ app.delete("/wisesayings/:id", async (req, res) => {
   );
 
   res.json({
-    msg: `${id}번 할일이 수정되었습니다.`,
+    msg: `${id}번 할일이 삭제되었습니다.`,
   });
 });
 
+// 생성
 app.post("/wisesayings/", async (req, res) => {
   const { reg_date, content, author } = req.body;
 
@@ -98,6 +101,7 @@ app.post("/wisesayings/", async (req, res) => {
   });
 });
 
+// 수정
 app.patch("/wisesayings/:id", async (req, res) => {
   //const id = req.params.id;
   const { id } = req.params;
@@ -118,31 +122,51 @@ app.patch("/wisesayings/:id", async (req, res) => {
     return;
   }
 
-  const { likepoint, id } = req.body;
+  const {
+    reg_date = rows.reg_date,
+    content = rows.content,
+    author = rows.author,
+    likepoint = rows.likepoint,
+  } = req.body;
 
-  const [rs] = await pool.query(
+  await pool.query(
     `
       UPDATE wisesaying
-      SET likepoint = ?
+      SET reg_date = ?,
+      content = ?,
+      author = ?,
+      likepoint = ?
       WHERE id = ?
       `,
-    [likepoint, id]
+    [reg_date, content, author, likepoint, id]
+  );
+
+  const [justrows] = await pool.query(
+    `
+      SELECT *
+      FROM wisesaying
+      WHERE id = ?
+      `,
+    [id]
   );
 
   res.json({
     msg: `${id}번 할일이 수정되었습니다.`,
+    data: justrows,
   });
 });
 
+// 단건조회
 app.get("/wisesayings/:id", async (req, res) => {
   //const id = req.params.id;
   const { id } = req.params;
 
   const [rows] = await pool.query(
     `
-      SELECT *
-      FROM wisesaying
-      WHERE id = ?
+    SELECT *
+    FROM wisesaying
+    ORDER BY RAND()
+    LIMIT 1
       `,
     [id]
   );
@@ -157,7 +181,8 @@ app.get("/wisesayings/:id", async (req, res) => {
   res.json(rows[0]);
 });
 
-app.get("/wisesayings/", async (req, res) => {
+// 다건조회
+app.get("/wisesayings/random", async (req, res) => {
   const [[rows]] = await pool.query(
     `
       SELECT *
@@ -166,6 +191,14 @@ app.get("/wisesayings/", async (req, res) => {
       LIMIT 1
       `
   );
+
+  if (rows === undefined) {
+    res.status(404).json({
+      resultCode: "F-1",
+      msg: "404 not found",
+    });
+    return;
+  }
 
   await pool.query(
     `UPDATE wisesaying
@@ -177,44 +210,6 @@ app.get("/wisesayings/", async (req, res) => {
   rows.hit++;
 
   res.json([rows]);
-});
-
-app.patch("/wisesayings/:id", async (req, res) => {
-  const { id } = req.params;
-
-  const [[rows]] = await pool.query(
-    `
-      SELECT *
-      FROM wisesaying
-      WHERE id = ?
-      ORDER BY RAND()
-      LIMIT 1
-      `,
-    [id]
-  );
-
-  if (rows.length == 0) {
-    res.status(404).json({
-      msg: "not found",
-    });
-    return;
-  }
-
-  const { likepoint } = req.body;
-
-  await pool.query(
-    `UPDATE wisesaying
-    SET likepoint = ?
-    where id = ?
-    `,
-    [likepoint, rows.id]
-  );
-
-  // rows.likepoint++;
-
-  res.json({
-    msg: `${rows.id} 좋아요 갯수가 변경되었습니다.`,
-  });
 });
 
 app.listen(port);
